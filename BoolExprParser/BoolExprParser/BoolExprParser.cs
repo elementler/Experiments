@@ -5,14 +5,21 @@ using System.Text.RegularExpressions;
 
 namespace BoolExprParser
 {
-    public static class BoolExprParser
+    public class BoolExprParser
     {
+        // I don't want to write thread safe methods for now; thus, I add
+        // this parameterless constructor, assuming the client code will
+        // create a new instance of this class each time.  Optimization will
+        // be done in future.
+        public BoolExprParser()
+        { }
+
         /// <summary>
         /// Converts the raw Boolean expression to a list of tokens.
         /// </summary>
         /// <param name="rawBoolExpr"></param>
         /// <returns></returns>
-        public static List<Token> ExtractTokens(string rawBoolExpr)
+        public List<Token> ExtractTokens(string rawBoolExpr)
         {
             if (string.IsNullOrWhiteSpace(rawBoolExpr))
             {
@@ -43,7 +50,7 @@ namespace BoolExprParser
         /// </summary>
         /// <param name="infixTokenList"></param>
         /// <returns></returns>
-        public static List<Token> TransformToPolishNotation(List<Token> infixTokenList)
+        public List<Token> TransformToPolishNotation(List<Token> infixTokenList)
         {
             if (null == infixTokenList || infixTokenList.Count == 0)
             {
@@ -98,7 +105,7 @@ namespace BoolExprParser
         /// </summary>
         /// <param name="polishNotationTokensEnumerator"></param>
         /// <returns></returns>
-        public static BoolExprTreeNode GenerateBoolBinTree(ref List<Token>.Enumerator polishNotationTokensEnumerator)
+        public BoolExprTreeNode GenerateBoolBinTree(ref List<Token>.Enumerator polishNotationTokensEnumerator)
         {
             if (polishNotationTokensEnumerator.Current.Type == Token.TokenType.LITERAL)
             {
@@ -137,8 +144,9 @@ namespace BoolExprParser
         /// node, in order to generate a list of AND groups of operands.
         /// </summary>
         /// <param name="boolExprTreeNode"></param>
+        /// <param name="isNot"></param>
         /// <returns></returns>
-        public static List<List<Operand>> ConvertToAnddGroups(BoolExprTreeNode boolExprTreeNode)
+        public List<List<Operand>> ConvertToAnddGroups(BoolExprTreeNode boolExprTreeNode, bool isNot = false)
         {
             if (null != boolExprTreeNode)
             {
@@ -148,7 +156,7 @@ namespace BoolExprParser
                 {
                     new List<Operand>()
                     {
-                        new Operand(boolExprTreeNode.Literal)
+                        new Operand(boolExprTreeNode.Literal, isNot)
                     }
                 };
                 }
@@ -156,16 +164,14 @@ namespace BoolExprParser
                 {
                     if (boolExprTreeNode.Operator == BoolExprTreeNode.BoolOperator.OR)
                     {
-                        var left = ConvertToAnddGroups(boolExprTreeNode.Left);
-                        var right = ConvertToAnddGroups(boolExprTreeNode.Right);
-
-                        if (null == left || null == right)
+                        if(isNot)
                         {
-                            throw new BoolExprTreeException("The specified Binary Boolean Expression Tree is not valid.");
+                            return AndOperation(boolExprTreeNode, isNot);
                         }
-
-                        left.AddRange(right);
-                        return left;
+                        else
+                        {
+                            return OrOperation(boolExprTreeNode, isNot);
+                        }
                     }
 
                     if (boolExprTreeNode.Operator == BoolExprTreeNode.BoolOperator.AND)
@@ -173,50 +179,109 @@ namespace BoolExprParser
                         var left = ConvertToAnddGroups(boolExprTreeNode.Left);
                         var right = ConvertToAnddGroups(boolExprTreeNode.Right);
 
-                        if (null == left || null == right)
+                        if(isNot)
                         {
-                            throw new BoolExprTreeException("The specified Binary Boolean Expression Tree is not valid.");
+                            return OrOperation(boolExprTreeNode, isNot);
                         }
-
-                        var combinations = (from l in left
-                                            from r in right
-                                            select new { l, r }).ToList();
-
-                        var results = new List<List<Operand>>();
-                        combinations.ForEach(combination =>
+                        else
                         {
-                            var result = new List<Operand>(combination.l);
-                            var newRight = new List<Operand>(combination.r);
-                            result.AddRange(newRight);
-                            results.Add(result);
-                        });
-
-                        return results;
+                            return AndOperation(boolExprTreeNode, isNot);
+                        }
                     }
 
                     if (boolExprTreeNode.Operator == BoolExprTreeNode.BoolOperator.NOT)
                     {
-                        if (null != boolExprTreeNode.Right)
+                        if (null != boolExprTreeNode.Right || null == boolExprTreeNode.Left)
                         {
                             throw new BoolExprTreeException("The specified Binary Boolean Expression Tree is not valid.");
                         }
 
-                        var left = ConvertToAnddGroups(boolExprTreeNode.Left);
-
-                        left.ForEach(andGroup =>
-                        {
-                            andGroup.ForEach(operand =>
-                            {
-                                operand.IsNot = true;
-                            });
-                        });
-
-                        return left;
+                        return ConvertToAnddGroups(boolExprTreeNode.Left, true);
                     }
                 }
             }
 
             return null;
+        }
+
+        /// <summary>
+        /// Does the AND calculation to generate a list of AND groups of 
+        /// operands.
+        /// </summary>
+        /// <param name="startingOpNode"></param>
+        /// <param name="isNot"></param>
+        /// <returns></returns>
+        private List<List<Operand>> AndOperation(BoolExprTreeNode startingOpNode, bool isNot)
+        {
+            if(null == startingOpNode)
+            {
+                throw new ArgumentNullException($"{nameof(startingOpNode)}");
+            }
+            if(startingOpNode.IsLeaf())
+            {
+                throw new BoolExprTreeException("The specified starting node doesn't have 2 children.");
+            }
+            if(startingOpNode.Operator == BoolExprTreeNode.BoolOperator.NOT)
+            {
+                throw new BoolExprTreeException("The specified starting node is a unary operator node.");
+            }
+
+            var left = ConvertToAnddGroups(startingOpNode.Left, isNot);
+            var right = ConvertToAnddGroups(startingOpNode.Right, isNot);
+
+            if (null == left || null == right)
+            {
+                throw new BoolExprTreeException("The specified Binary Boolean Expression Tree is not valid.");
+            }
+
+            var combinations = (from l in left
+                                from r in right
+                                select new { l, r }).ToList();
+
+            var results = new List<List<Operand>>();
+            combinations.ForEach(combination =>
+            {
+                var result = new List<Operand>(combination.l);
+                var newRight = new List<Operand>(combination.r);
+                result.AddRange(newRight);
+                results.Add(result);
+            });
+
+            return results;
+        }
+
+        /// <summary>
+        /// Does the OR calculation to generate a list of AND groups of 
+        /// operands.
+        /// </summary>
+        /// <param name="startingOpNode"></param>
+        /// <param name="isNot"></param>
+        /// <returns></returns>
+        private List<List<Operand>> OrOperation(BoolExprTreeNode startingOpNode, bool isNot)
+        {
+            if (null == startingOpNode)
+            {
+                throw new ArgumentNullException($"{nameof(startingOpNode)}");
+            }
+            if (startingOpNode.IsLeaf())
+            {
+                throw new BoolExprTreeException("The specified starting node doesn't have 2 children.");
+            }
+            if (startingOpNode.Operator == BoolExprTreeNode.BoolOperator.NOT)
+            {
+                throw new BoolExprTreeException("The specified starting node is a unary operator node.");
+            }
+
+            var left = ConvertToAnddGroups(startingOpNode.Left, isNot);
+            var right = ConvertToAnddGroups(startingOpNode.Right, isNot);
+
+            if (null == left || null == right)
+            {
+                throw new BoolExprTreeException("The specified Binary Boolean Expression Tree is not valid.");
+            }
+
+            left.AddRange(right);
+            return left;
         }
 
     }

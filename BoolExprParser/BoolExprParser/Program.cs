@@ -15,15 +15,16 @@ namespace BoolExprParser
                 Console.WriteLine("Please input a Boolean expression: ");
                 var expr = Console.ReadLine();
 
-                var tokens = BoolExprParser.ExtractTokens(expr);
+                var boolExprParser = new BoolExprParser();
+                var tokens = boolExprParser.ExtractTokens(expr);
 
-                var pnTokens = BoolExprParser.TransformToPolishNotation(tokens);
+                var pnTokens = boolExprParser.TransformToPolishNotation(tokens);
 
                 var enumerator = pnTokens.GetEnumerator();
                 enumerator.MoveNext();
-                var root = BoolExprParser.GenerateBoolBinTree(ref enumerator);
+                var root = boolExprParser.GenerateBoolBinTree(ref enumerator);
 
-                var andGroups = BoolExprParser.ConvertToAnddGroups(root);
+                var andGroups = boolExprParser.ConvertToAnddGroups(root);
 
                 for (int i = 0; i < andGroups.Count; i++)
                 {

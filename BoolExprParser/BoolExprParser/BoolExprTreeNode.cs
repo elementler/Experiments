@@ -1,11 +1,9 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
 using System.Text;
 
 namespace BoolExprParser
 {
-    public class BoolExprTreeNode : ICloneable
+    public class BoolExprTreeNode : IDisposable
     {
         public enum BoolOperator
         {
@@ -86,6 +84,10 @@ namespace BoolExprParser
             return new BoolExprTreeNode(literal);
         }
 
+        /// <summary>
+        /// Deeply copies the subtree starting from the specified node.
+        /// </summary>
+        /// <param name="other"></param>
         public BoolExprTreeNode(BoolExprTreeNode other)
         {
             _op = other._op;
@@ -99,13 +101,12 @@ namespace BoolExprParser
             return (_op == BoolOperator.LEAF);
         }
 
-        /// <summary>
-        /// Implements deep copy.
-        /// </summary>
-        /// <returns></returns>
-        public object Clone()
+        public void Dispose()
         {
-            return new BoolExprTreeNode(this);
+            _op = BoolOperator.LEAF;
+            _left = null;
+            _right = null;
+            _literal = null;
         }
     }
 }
