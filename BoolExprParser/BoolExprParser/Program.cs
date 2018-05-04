@@ -24,7 +24,7 @@ namespace BoolExprParser
                 enumerator.MoveNext();
                 var root = boolExprParser.GenerateBoolBinTree(ref enumerator);
 
-                var andGroups = boolExprParser.ConvertToAnddGroups(root);
+                var andGroups = boolExprParser.ConvertToOrGroups(root);
 
                 for (int i = 0; i < andGroups.Count; i++)
                 {

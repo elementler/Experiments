@@ -69,6 +69,20 @@ namespace BoolExprParser
                 {
                     case Token.TokenType.LITERAL:
                         outputQueue.Enqueue(token);
+                        if (stack.Count > 0 && stack.Peek().Type == Token.TokenType.UNARY_OP)
+                        {
+                            var notOp = stack.Pop();
+                            if (stack.Count == 0 ||
+                               stack.Peek().Type == Token.TokenType.OPEN_PAREN ||
+                               stack.Peek().Type == Token.TokenType.BINARY_OP)
+                            {
+                                outputQueue.Enqueue(notOp);
+                            }
+                            else
+                            {
+                                stack.Push(notOp);
+                            }
+                        }
                         break;
                     case Token.TokenType.BINARY_OP:
                     case Token.TokenType.UNARY_OP:
@@ -141,12 +155,12 @@ namespace BoolExprParser
 
         /// <summary>
         /// Traverse the Binary Boolean Expression Tree from the given starting
-        /// node, in order to generate a list of AND groups of operands.
+        /// node, in order to generate a list of OR groups of operands.
         /// </summary>
         /// <param name="boolExprTreeNode"></param>
         /// <param name="isNot"></param>
         /// <returns></returns>
-        public List<List<Operand>> ConvertToAnddGroups(BoolExprTreeNode boolExprTreeNode, bool isNot = false)
+        public List<List<Operand>> ConvertToOrGroups(BoolExprTreeNode boolExprTreeNode, bool isNot = false)
         {
             if (null != boolExprTreeNode)
             {
@@ -176,8 +190,8 @@ namespace BoolExprParser
 
                     if (boolExprTreeNode.Operator == BoolExprTreeNode.BoolOperator.AND)
                     {
-                        var left = ConvertToAnddGroups(boolExprTreeNode.Left);
-                        var right = ConvertToAnddGroups(boolExprTreeNode.Right);
+                        var left = ConvertToOrGroups(boolExprTreeNode.Left);
+                        var right = ConvertToOrGroups(boolExprTreeNode.Right);
 
                         if(isNot)
                         {
@@ -196,7 +210,7 @@ namespace BoolExprParser
                             throw new BoolExprTreeException("The specified Binary Boolean Expression Tree is not valid.");
                         }
 
-                        return ConvertToAnddGroups(boolExprTreeNode.Left, true);
+                        return ConvertToOrGroups(boolExprTreeNode.Left, true);
                     }
                 }
             }
@@ -226,8 +240,8 @@ namespace BoolExprParser
                 throw new BoolExprTreeException("The specified starting node is a unary operator node.");
             }
 
-            var left = ConvertToAnddGroups(startingOpNode.Left, isNot);
-            var right = ConvertToAnddGroups(startingOpNode.Right, isNot);
+            var left = ConvertToOrGroups(startingOpNode.Left, isNot);
+            var right = ConvertToOrGroups(startingOpNode.Right, isNot);
 
             if (null == left || null == right)
             {
@@ -272,8 +286,8 @@ namespace BoolExprParser
                 throw new BoolExprTreeException("The specified starting node is a unary operator node.");
             }
 
-            var left = ConvertToAnddGroups(startingOpNode.Left, isNot);
-            var right = ConvertToAnddGroups(startingOpNode.Right, isNot);
+            var left = ConvertToOrGroups(startingOpNode.Left, isNot);
+            var right = ConvertToOrGroups(startingOpNode.Right, isNot);
 
             if (null == left || null == right)
             {
